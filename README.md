@@ -8,11 +8,14 @@ https://hgj-isw.github.io/kavel-veiling-test/
 
 ## Functies
 
+Beheer in tabbladen: **Kavels** | **Biedingen** | **Instellingen**
+
 - Kavels toevoegen / bewerken / verwijderen
 - Stapgrootte en startbedrag per kavel
 - Alle biedingen met e-mailadres
 - Onzinbiedingen verwijderen
 - Testdata resetten
+- Geen Control Center op de leerling-site (aparte repo)
 
 ## Opslag (testfase)
 

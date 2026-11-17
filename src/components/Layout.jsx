@@ -18,7 +18,7 @@ export default function Layout() {
 
           <nav className="nav" aria-label="Hoofdmenu">
             <NavLink to="/" end>
-              Beheer
+              Overzicht
             </NavLink>
           </nav>
 

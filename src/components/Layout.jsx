@@ -1,0 +1,61 @@
+import { Link, NavLink, Outlet } from 'react-router-dom'
+import { useAuth } from '../auth/AuthContext.jsx'
+
+export default function Layout() {
+  const { user, logout } = useAuth()
+
+  return (
+    <div className="app-shell">
+      <header className="site-header">
+        <div className="site-header__inner">
+          <Link to="/" className="brand">
+            <span className="brand__mark">ISW</span>
+            <span className="brand__text">
+              <strong>Hoogeland</strong>
+              <em>Control Center</em>
+            </span>
+          </Link>
+
+          <nav className="nav" aria-label="Hoofdmenu">
+            <NavLink to="/" end>
+              Beheer
+            </NavLink>
+          </nav>
+
+          <div className="header-user">
+            {user ? (
+              <>
+                <span className="header-user__email" title={user.email}>
+                  {user.email} · admin
+                </span>
+                <button type="button" className="btn btn--ghost" onClick={logout}>
+                  Uitloggen
+                </button>
+              </>
+            ) : (
+              <Link className="btn btn--ghost" to="/login">
+                Inloggen (test)
+              </Link>
+            )}
+          </div>
+        </div>
+        <div className="test-banner" role="status">
+          ADMIN TEST — aparte localStorage · geen SharePoint · leerling-site is los
+        </div>
+      </header>
+
+      <main className="main">
+        <Outlet />
+      </main>
+
+      <footer className="site-footer">
+        <p>
+          ISW Hoogeland · Control Center ·{' '}
+          <a href="https://hgj-isw.github.io/kavel-veiling-test/">
+            naar leerling-site
+          </a>
+        </p>
+      </footer>
+    </div>
+  )
+}

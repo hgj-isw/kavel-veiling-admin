@@ -1,0 +1,25 @@
+GitHub-repo + Pages (admin Control Center)
+==========================================
+
+1. Repo (als die nog niet bestaat), als hgj-isw:
+
+   gh repo create hgj-isw/kavel-veiling-admin --public --source=. --remote=origin --push
+
+2. Bouwen:
+
+   npm install
+   npm run build:pages
+
+3. Pages-branch:
+
+   # inhoud van dist/ naar branch gh-pages
+   npx --yes gh-pages -d dist
+
+4. Settings → Pages → Deploy from a branch → gh-pages → / (root) → Save
+
+5. Open: https://hgj-isw.github.io/kavel-veiling-admin/
+
+Login: hgj@isw.info · test-PIN 1234
+
+Let op: localStorage is gescheiden van de leerling-site
+(isw-kavel-veiling-admin-v1 vs isw-kavel-veiling-v1).

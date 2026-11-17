@@ -548,6 +548,13 @@ th {
   box-shadow: var(--shadow);
 }
 
+.tabs--header {
+  flex: 1;
+  margin: 0;
+  min-width: 0;
+  box-shadow: none;
+}
+
 .tabs__btn {
   appearance: none;
   border: 1px solid transparent;
@@ -622,6 +629,12 @@ th {
 @media (max-width: 720px) {
   .site-header__inner {
     align-items: flex-start;
+  }
+
+  .tabs--header {
+    order: 3;
+    width: 100%;
+    flex: 1 0 100%;
   }
 
   .header-user {

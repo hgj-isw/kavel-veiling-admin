@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { Navigate, useLocation } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { Navigate, useLocation, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext.jsx'
 import {
   deleteBid,
@@ -21,16 +21,15 @@ const emptyForm = {
   actief: true,
 }
 
-const TABS = [
-  { id: 'kavels', label: 'Kavels' },
-  { id: 'biedingen', label: 'Biedingen' },
-  { id: 'instellingen', label: 'Instellingen' },
-]
+const TAB_IDS = new Set(['kavels', 'biedingen', 'instellingen'])
 
 export default function Admin() {
   const { isLoggedIn, isAdmin, user } = useAuth()
   const location = useLocation()
-  const [tab, setTab] = useState('kavels')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tab = TAB_IDS.has(searchParams.get('tab'))
+    ? searchParams.get('tab')
+    : 'kavels'
   const [form, setForm] = useState(emptyForm)
   const [fout, setFout] = useState('')
   const [ok, setOk] = useState('')
@@ -38,6 +37,11 @@ export default function Admin() {
 
   const kavels = useMemo(() => listKavels(), [version, ok])
   const biedingen = useMemo(() => listBiedingen(), [version, ok])
+
+  useEffect(() => {
+    setOk('')
+    setFout('')
+  }, [tab])
 
   if (!isLoggedIn) {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />
@@ -60,10 +64,12 @@ export default function Admin() {
     setVersion((v) => v + 1)
   }
 
-  function switchTab(next) {
-    setTab(next)
-    setOk('')
-    setFout('')
+  function goToTab(next) {
+    if (next === 'kavels') {
+      setSearchParams({}, { replace: true })
+    } else {
+      setSearchParams({ tab: next }, { replace: true })
+    }
   }
 
   function onEdit(kavel) {
@@ -77,7 +83,7 @@ export default function Admin() {
     })
     setOk('')
     setFout('')
-    setTab('kavels')
+    goToTab('kavels')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -136,26 +142,6 @@ export default function Admin() {
           {kavels.length} kavel{kavels.length === 1 ? '' : 's'} ·{' '}
           {biedingen.length} bieding{biedingen.length === 1 ? '' : 'en'}
         </p>
-      </div>
-
-      <div className="tabs" role="tablist" aria-label="Beheersecties">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            role="tab"
-            id={`tab-${t.id}`}
-            aria-selected={tab === t.id}
-            aria-controls={`panel-${t.id}`}
-            className={`tabs__btn${tab === t.id ? ' is-active' : ''}`}
-            onClick={() => switchTab(t.id)}
-          >
-            {t.label}
-            {t.id === 'biedingen' && biedingen.length > 0 && (
-              <span className="tabs__count">{biedingen.length}</span>
-            )}
-          </button>
-        ))}
       </div>
 
       {tab === 'kavels' && (

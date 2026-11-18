@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useSearchParams } from 'react-router-dom'
+import { API_URL, usingMockApi } from '../api/client.js'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { listBiedingen } from '../data/store.js'
 
@@ -10,10 +11,12 @@ const ADMIN_TABS = [
 ]
 
 export default function Layout() {
-  const { user, isLoggedIn, isAdmin, logout } = useAuth()
+  const { user, isLoggedIn, isAdmin, isLive, logout } = useAuth()
   const location = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
-  const [biedingenCount, setBiedingenCount] = useState(() => listBiedingen().length)
+  const [biedingenCount, setBiedingenCount] = useState(() =>
+    listBiedingen().length,
+  )
   const onAdminHome =
     isLoggedIn && isAdmin && (location.pathname === '/' || location.pathname === '')
   const activeTab = ADMIN_TABS.some((t) => t.id === searchParams.get('tab'))
@@ -21,13 +24,22 @@ export default function Layout() {
     : 'kavels'
 
   useEffect(() => {
-    function refresh() {
-      setBiedingenCount(listBiedingen().length)
+    function refreshMock() {
+      if (!isLive) setBiedingenCount(listBiedingen().length)
     }
-    refresh()
-    window.addEventListener('kavel-db-changed', refresh)
-    return () => window.removeEventListener('kavel-db-changed', refresh)
-  }, [])
+    function refreshLive(e) {
+      if (typeof e?.detail?.count === 'number') {
+        setBiedingenCount(e.detail.count)
+      }
+    }
+    refreshMock()
+    window.addEventListener('kavel-db-changed', refreshMock)
+    window.addEventListener('kavel-live-biedingen-changed', refreshLive)
+    return () => {
+      window.removeEventListener('kavel-db-changed', refreshMock)
+      window.removeEventListener('kavel-live-biedingen-changed', refreshLive)
+    }
+  }, [isLive])
 
   function selectTab(id) {
     if (id === 'kavels') {
@@ -89,13 +101,17 @@ export default function Layout() {
               </>
             ) : (
               <Link className="btn btn--ghost" to="/login">
-                Inloggen (test)
+                Inloggen
               </Link>
             )}
           </div>
         </div>
         <div className="test-banner" role="status">
-          ADMIN TEST — aparte localStorage · geen SharePoint · leerling-site is los
+          {usingMockApi
+            ? 'ADMIN TEST — lokale mock (localStorage) · geen live API'
+            : isLive
+              ? `LIVE API — biedingen via ${API_URL} · kavels nog mock tot follow-up`
+              : `API gezet (${API_URL}) — log in met toegangscode voor live biedingen`}
         </div>
       </header>
 
@@ -109,6 +125,12 @@ export default function Layout() {
           <a href="https://hgj-isw.github.io/kavel-veiling-test/">
             naar leerling-site
           </a>
+          {API_URL ? (
+            <>
+              {' '}
+              · API <code>{API_URL}</code>
+            </>
+          ) : null}
         </p>
       </footer>
     </div>

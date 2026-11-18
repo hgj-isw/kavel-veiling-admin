@@ -156,6 +156,20 @@ export async function fetchAdminBiedingen() {
 }
 
 /**
+ * Volledige live snapshot (kavels + biedingen) voor client-side encryptie.
+ * Geen raw download — caller versleutelt (AES-256-GCM) vóór opslaan.
+ */
+export async function fetchAdminExportJson() {
+  const data = await api('GET', '/api/admin/export?format=json', { auth: true })
+  if (!data || typeof data !== 'object') {
+    const err = new Error('Lege export van de API.')
+    err.status = 502
+    throw err
+  }
+  return data
+}
+
+/**
  * Hard-delete één bod. Geen body. Caller moet eerst window.confirm tonen.
  */
 export async function deleteAdminBid(id) {

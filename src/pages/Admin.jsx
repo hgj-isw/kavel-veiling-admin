@@ -1,5 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Navigate, useLocation, useSearchParams } from 'react-router-dom'
+import {
+  API_URL,
+  deleteAdminBid,
+  fetchAdminBiedingen,
+  usingLiveBids,
+  usingMockApi,
+} from '../api/client.js'
 import { useAuth } from '../auth/AuthContext.jsx'
 import {
   deleteBid,
@@ -24,7 +31,7 @@ const emptyForm = {
 const TAB_IDS = new Set(['kavels', 'biedingen', 'instellingen'])
 
 export default function Admin() {
-  const { isLoggedIn, isAdmin, user } = useAuth()
+  const { isLoggedIn, isAdmin, user, isLive } = useAuth()
   const location = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
   const tab = TAB_IDS.has(searchParams.get('tab'))
@@ -34,14 +41,44 @@ export default function Admin() {
   const [fout, setFout] = useState('')
   const [ok, setOk] = useState('')
   const [version, setVersion] = useState(0)
+  const [liveBiedingen, setLiveBiedingen] = useState([])
+  const [bidsLoading, setBidsLoading] = useState(false)
+  const [bidsFout, setBidsFout] = useState('')
+  const [deletingId, setDeletingId] = useState(null)
+
+  const liveBids = isLive && usingLiveBids()
 
   const kavels = useMemo(() => listKavels(), [version, ok])
-  const biedingen = useMemo(() => listBiedingen(), [version, ok])
+  const mockBiedingen = useMemo(() => listBiedingen(), [version, ok])
+  const biedingen = liveBids ? liveBiedingen : mockBiedingen
+
+  async function refreshLiveBids() {
+    setBidsLoading(true)
+    setBidsFout('')
+    try {
+      const list = await fetchAdminBiedingen()
+      setLiveBiedingen(list)
+    } catch (err) {
+      setBidsFout(err.message || 'Biedingen laden mislukt.')
+      setLiveBiedingen([])
+    } finally {
+      setBidsLoading(false)
+    }
+  }
 
   useEffect(() => {
     setOk('')
     setFout('')
   }, [tab])
+
+  useEffect(() => {
+    if (!liveBids) {
+      setLiveBiedingen([])
+      setBidsFout('')
+      return
+    }
+    refreshLiveBids()
+  }, [liveBids, version])
 
   if (!isLoggedIn) {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />
@@ -108,14 +145,31 @@ export default function Admin() {
     bump(`Kavel “${titel}” verwijderd.`)
   }
 
-  function onDeleteBid(id, email, bedrag) {
+  async function onDeleteBid(id, email, bedrag) {
     if (
       !window.confirm(
-        `Bod van ${euro(bedrag)} door ${email} verwijderen?`,
+        `Bod van ${euro(bedrag)} door ${email} verwijderen? Dit kan niet ongedaan worden.`,
       )
     ) {
       return
     }
+
+    if (liveBids) {
+      setDeletingId(id)
+      setFout('')
+      try {
+        await deleteAdminBid(id)
+        setOk('Bod verwijderd uit de live veiling.')
+        setVersion((v) => v + 1)
+      } catch (err) {
+        setFout(err.message || 'Verwijderen mislukt.')
+        setOk('')
+      } finally {
+        setDeletingId(null)
+      }
+      return
+    }
+
     deleteBid(id)
     bump('Bod verwijderd.')
   }
@@ -141,6 +195,11 @@ export default function Admin() {
         <p className="admin__stats muted">
           {kavels.length} kavel{kavels.length === 1 ? '' : 's'} ·{' '}
           {biedingen.length} bieding{biedingen.length === 1 ? '' : 'en'}
+          {liveBids
+            ? ' · live API'
+            : usingMockApi
+              ? ' · lokale mock'
+              : ''}
         </p>
       </div>
 
@@ -239,6 +298,12 @@ export default function Admin() {
 
           <div className="panel">
             <h2>Alle kavels</h2>
+            {!usingMockApi && (
+              <p className="lede muted">
+                Kavels hier zijn nog lokale mock-data. Live biedingen staan
+                onder het tabblad Biedingen.
+              </p>
+            )}
             <div className="table-wrap">
               <table>
                 <thead>
@@ -298,13 +363,50 @@ export default function Admin() {
           <div className="panel">
             <h2>Alle biedingen (met e-mail)</h2>
             <p className="lede">
-              Verwijder onzinbiedingen hier. Op de leerling-stand blijven
-              e-mailadressen verborgen.
+              Verwijder onzinbiedingen hier — één voor één, na bevestiging. Op
+              de leerling-stand blijven e-mailadressen verborgen.
+              {liveBids ? (
+                <>
+                  {' '}
+                  Bron: live API
+                  {API_URL ? (
+                    <>
+                      {' '}
+                      (<code>{API_URL}</code>)
+                    </>
+                  ) : null}
+                  .
+                </>
+              ) : (
+                <> Bron: lokale mock (localStorage).</>
+              )}
             </p>
+            {fout && (
+              <p className="msg msg--error" role="alert">
+                {fout}
+              </p>
+            )}
+            {bidsFout && (
+              <p className="msg msg--error" role="alert">
+                {bidsFout}
+              </p>
+            )}
             {ok && (
               <p className="msg msg--ok" role="status">
                 {ok}
               </p>
+            )}
+            {liveBids && (
+              <div className="btn-row">
+                <button
+                  type="button"
+                  className="btn btn--ghost"
+                  onClick={() => refreshLiveBids()}
+                  disabled={bidsLoading}
+                >
+                  {bidsLoading ? 'Laden…' : 'Lijst vernieuwen'}
+                </button>
+              </div>
             )}
             <div className="table-wrap">
               <table>
@@ -320,7 +422,11 @@ export default function Admin() {
                 <tbody>
                   {biedingen.map((b) => (
                     <tr key={b.id}>
-                      <td>{kavelMap[b.kavelId]?.titel || b.kavelId}</td>
+                      <td>
+                        {b.kavelTitel ||
+                          kavelMap[b.kavelId]?.titel ||
+                          b.kavelId}
+                      </td>
                       <td>{euro(b.bedrag)}</td>
                       <td>{b.email}</td>
                       <td>
@@ -333,16 +439,22 @@ export default function Admin() {
                         <button
                           type="button"
                           className="btn btn--danger"
+                          disabled={deletingId === b.id}
                           onClick={() => onDeleteBid(b.id, b.email, b.bedrag)}
                         >
-                          Onzinbieding verwijderen
+                          {deletingId === b.id
+                            ? 'Bezig…'
+                            : 'Onzinbieding verwijderen'}
                         </button>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-              {biedingen.length === 0 && (
+              {bidsLoading && biedingen.length === 0 && (
+                <p className="empty">Biedingen laden…</p>
+              )}
+              {!bidsLoading && biedingen.length === 0 && !bidsFout && (
                 <p className="empty">Nog geen biedingen.</p>
               )}
             </div>
@@ -362,7 +474,8 @@ export default function Admin() {
             <p className="lede">
               Zet alle kavels en biedingen terug naar de start-nepdata. Handig
               na een oefenronde. Dit raakt alleen de admin-localStorage (
-              <code>isw-kavel-veiling-admin-v1</code>), niet de leerling-site.
+              <code>isw-kavel-veiling-admin-v1</code>), niet de live D1 of de
+              leerling-site.
             </p>
             {ok && (
               <p className="msg msg--ok" role="status">
@@ -392,9 +505,20 @@ export default function Admin() {
                 </a>
               </li>
               <li>
+                API:{' '}
+                {API_URL ? (
+                  <code>{API_URL}</code>
+                ) : (
+                  <>geen <code>VITE_API_URL</code> (lokale mock)</>
+                )}
+              </li>
+              <li>
                 Admin-login: alleen <code>hgj@isw.info</code>
               </li>
-              <li>Geen SharePoint-koppeling in deze testfase</li>
+              <li>
+                Onzinbiedingen: handmatig, één voor één, na expliciete
+                bevestiging
+              </li>
             </ul>
           </div>
         </div>

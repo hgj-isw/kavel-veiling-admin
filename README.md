@@ -17,23 +17,25 @@ Beheer in tabbladen: **Kavels** | **Biedingen** | **Instellingen**
 - Testdata resetten
 - Geen Control Center op de leerling-site (aparte repo)
 
-## Opslag (testfase)
+## Opslag
 
-- localStorage-key admin: `isw-kavel-veiling-admin-v1`
-- Leerling-site: `isw-kavel-veiling-v1` (bewust **niet** gedeeld)
-- Twee losse stores tot echte data via SharePoint komt
+- **Live** (Pages-build met `VITE_API_URL`): biedingen-lijst + delete via Cloudflare (`GET`/`DELETE /api/admin/biedingen`). Login met school-e-mail + toegangscode; alleen admin.
+- **Mock** (lokaal zonder `VITE_API_URL`): localStorage `isw-kavel-veiling-admin-v1` + test-PIN. Mock wordt niet gewist.
+- Onzinbiedingen: alleen handmatig, na expliciete bevestiging (geen bulk/auto).
 
 ## Lokaal
 
 ```bash
 npm install
 npm run dev
+# optioneel live API:
+# VITE_API_URL=https://kavel-veiling-api.hgj-isw.workers.dev npm run dev
 ```
 
 ## GitHub Pages
 
 ```bash
-npm run build:pages
+VITE_API_URL=https://kavel-veiling-api.hgj-isw.workers.dev npm run build:pages
 # dist/ bevat index.html + 404.html (SPA-fallback) + .nojekyll
 # deploy dist/ → branch gh-pages, pad /
 ```

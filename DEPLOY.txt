@@ -5,11 +5,12 @@ GitHub-repo + Pages (admin Control Center)
 
    gh repo create hgj-isw/kavel-veiling-admin --public --source=. --remote=origin --push
 
-2. Bouwen:
+2. Bouwen (met live API):
 
    npm install
-   npm run build:pages
+   VITE_API_URL=https://kavel-veiling-api.hgj-isw.workers.dev npm run build:pages
    # maakt dist/index.html én dist/404.html (SPA-fallback voor /login e.d.)
+   # Zonder VITE_API_URL blijft de UI op lokale mock/localStorage.
 
 3. Pages-branch:
 
@@ -23,7 +24,10 @@ GitHub-repo + Pages (admin Control Center)
    Deep-links zoals /login geven HTTP 404 van GitHub Pages, maar 404.html
    is een kopie van index.html zodat de SPA toch laadt.
 
-Login: hgj@isw.info · test-PIN 1234
+Login live: hgj@isw.info · toegangscode (ACCESS_CODE)
+Login mock (geen VITE_API_URL): hgj@isw.info · test-PIN 1234
 
-Let op: localStorage is gescheiden van de leerling-site
-(isw-kavel-veiling-admin-v1 vs isw-kavel-veiling-v1).
+Onzinbiedingen: handmatig, één voor één, na window.confirm → DELETE /api/admin/biedingen/:id
+
+Let op: localStorage-mock blijft beschikbaar tot live pad werkt.
+Live Worker moet DELETE + CORS Allow-Methods bevatten (Jasper: wrangler deploy).

@@ -1,13 +1,20 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Navigate, useLocation, useSearchParams } from 'react-router-dom'
 import {
   API_URL,
   deleteAdminBid,
   fetchAdminBiedingen,
+  fetchAdminExportJson,
   usingLiveBids,
   usingMockApi,
 } from '../api/client.js'
 import { useAuth } from '../auth/AuthContext.jsx'
+import {
+  decryptBackupEnvelope,
+  encryptBackupEnvelope,
+  stampFilename,
+  triggerDownload,
+} from '../crypto/backupEnvelope.js'
 import {
   deleteBid,
   deleteKavel,
@@ -18,6 +25,33 @@ import {
   resetToSeed,
   upsertKavel,
 } from '../data/store.js'
+
+function buildMockExportSnapshot() {
+  const kavels = listKavels()
+  const biedingen = listBiedingen()
+  return {
+    exportedAt: new Date().toISOString(),
+    service: 'kavel-veiling-admin-mock',
+    counts: { kavels: kavels.length, biedingen: biedingen.length },
+    kavels: kavels.map((k, i) => ({
+      id: k.id,
+      titel: k.titel,
+      omschrijving: k.omschrijving,
+      startBedrag: k.startBedrag,
+      stapGrootte: k.stapGrootte,
+      actief: k.actief ? 1 : 0,
+      sortOrder: i,
+    })),
+    biedingen: biedingen.map((b) => ({
+      id: b.id,
+      kavelId: b.kavelId,
+      kavelTitel: b.kavelTitel || '',
+      bedrag: b.bedrag,
+      email: b.email,
+      tijdstip: b.tijdstip,
+    })),
+  }
+}
 
 const emptyForm = {
   id: '',
@@ -45,6 +79,13 @@ export default function Admin() {
   const [bidsLoading, setBidsLoading] = useState(false)
   const [bidsFout, setBidsFout] = useState('')
   const [deletingId, setDeletingId] = useState(null)
+  const [exportKey, setExportKey] = useState('')
+  const [exportKey2, setExportKey2] = useState('')
+  const [exportBusy, setExportBusy] = useState(false)
+  const [importKey, setImportKey] = useState('')
+  const [importBusy, setImportBusy] = useState(false)
+  const [importPreview, setImportPreview] = useState(null)
+  const importFileRef = useRef(null)
 
   const liveBids = isLive && usingLiveBids()
 
@@ -179,6 +220,60 @@ export default function Admin() {
     resetToSeed()
     setForm(emptyForm)
     bump('Testdata gereset.')
+  }
+
+  async function onEncryptedExport(e) {
+    e.preventDefault()
+    setFout('')
+    setOk('')
+    if (exportKey !== exportKey2) {
+      setFout('Sleutels komen niet overeen.')
+      return
+    }
+    setExportBusy(true)
+    try {
+      const snapshot = liveBids
+        ? await fetchAdminExportJson()
+        : buildMockExportSnapshot()
+      const envelope = await encryptBackupEnvelope(snapshot, exportKey)
+      triggerDownload(stampFilename('veiling-backup'), JSON.stringify(envelope))
+      setExportKey('')
+      setExportKey2('')
+      setOk(
+        `Versleutelde backup (.json.enc) gedownload (${snapshot.counts?.biedingen ?? '?'} biedingen). Bewaar het wachtwoord offline.`,
+      )
+    } catch (err) {
+      setFout(err.message || 'Versleutelde export mislukt.')
+    } finally {
+      setExportBusy(false)
+    }
+  }
+
+  async function onEncryptedImport(e) {
+    e.preventDefault()
+    setFout('')
+    setOk('')
+    setImportPreview(null)
+    const file = importFileRef.current?.files?.[0]
+    if (!file) {
+      setFout('Kies eerst een .json.enc-bestand.')
+      return
+    }
+    setImportBusy(true)
+    try {
+      const text = await file.text()
+      const snapshot = await decryptBackupEnvelope(text, importKey)
+      setImportPreview(snapshot)
+      setImportKey('')
+      if (importFileRef.current) importFileRef.current.value = ''
+      setOk(
+        `Backup ontsleuteld (${snapshot.counts?.biedingen ?? snapshot.biedingen?.length ?? 0} biedingen). Preview only — geen automatische restore naar D1.`,
+      )
+    } catch (err) {
+      setFout(err.message || 'Import/ontsleutelen mislukt.')
+    } finally {
+      setImportBusy(false)
+    }
   }
 
   const kavelMap = Object.fromEntries(kavels.map((k) => [k.id, k]))
@@ -470,6 +565,177 @@ export default function Admin() {
           aria-labelledby="tab-instellingen"
         >
           <div className="panel">
+            <h2>Versleutelde backup</h2>
+            <p className="lede">
+              Download een AES-256-GCM-bestand (<code>.json.enc</code>) met
+              kavels + biedingen. Geen raw CSV/JSON op schijf. Gebruik een
+              apart backup-wachtwoord (≥12 tekens), niet de toegangscode.
+              {liveBids ? (
+                <>
+                  {' '}
+                  Live snapshot via{' '}
+                  <code>GET /api/admin/export?format=json</code>
+                  {API_URL ? (
+                    <>
+                      {' '}
+                      (<code>{API_URL}</code>)
+                    </>
+                  ) : null}
+                  .
+                </>
+              ) : (
+                <> Bron nu: lokale mock (geen live Bearer-sessie).</>
+              )}
+            </p>
+            {fout && (
+              <p className="msg msg--error" role="alert">
+                {fout}
+              </p>
+            )}
+            {ok && (
+              <p className="msg msg--ok" role="status">
+                {ok}
+              </p>
+            )}
+            <form className="form" onSubmit={onEncryptedExport}>
+              <label>
+                Backup-wachtwoord
+                <input
+                  type="password"
+                  autoComplete="new-password"
+                  value={exportKey}
+                  onChange={(e) => setExportKey(e.target.value)}
+                  minLength={12}
+                  required
+                />
+              </label>
+              <label>
+                Bevestig wachtwoord
+                <input
+                  type="password"
+                  autoComplete="new-password"
+                  value={exportKey2}
+                  onChange={(e) => setExportKey2(e.target.value)}
+                  minLength={12}
+                  required
+                />
+              </label>
+              <div className="btn-row">
+                <button
+                  type="submit"
+                  className="btn btn--primary"
+                  disabled={exportBusy}
+                >
+                  {exportBusy
+                    ? 'Versleutelen…'
+                    : 'Versleutelde backup downloaden'}
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <div className="panel">
+            <h2>Backup importeren</h2>
+            <p className="lede">
+              Ontsleutel een <code>.json.enc</code> met hetzelfde
+              backup-wachtwoord. MVP: preview only — geen automatische
+              D1-restore en geen wissen van testdata.
+            </p>
+            <form className="form" onSubmit={onEncryptedImport}>
+              <label>
+                Bestand
+                <input
+                  ref={importFileRef}
+                  type="file"
+                  accept=".json.enc,application/json,.enc"
+                  required
+                />
+              </label>
+              <label>
+                Backup-wachtwoord
+                <input
+                  type="password"
+                  autoComplete="off"
+                  value={importKey}
+                  onChange={(e) => setImportKey(e.target.value)}
+                  required
+                />
+              </label>
+              <div className="btn-row">
+                <button
+                  type="submit"
+                  className="btn btn--secondary"
+                  disabled={importBusy}
+                >
+                  {importBusy ? 'Ontsleutelen…' : 'Backup importeren'}
+                </button>
+                {importPreview && (
+                  <button
+                    type="button"
+                    className="btn btn--ghost"
+                    onClick={() => setImportPreview(null)}
+                  >
+                    Preview wissen
+                  </button>
+                )}
+              </div>
+            </form>
+            {importPreview && (
+              <div className="backup-preview">
+                <p className="muted">
+                  Snapshot {importPreview.exportedAt || '—'} ·{' '}
+                  {importPreview.counts?.kavels ??
+                    importPreview.kavels?.length ??
+                    0}{' '}
+                  kavels ·{' '}
+                  {importPreview.counts?.biedingen ??
+                    importPreview.biedingen?.length ??
+                    0}{' '}
+                  biedingen
+                </p>
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Kavel</th>
+                        <th>Bod</th>
+                        <th>E-mail</th>
+                        <th>Tijd</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(importPreview.biedingen || []).slice(0, 25).map((b) => (
+                        <tr key={b.id}>
+                          <td>{b.kavelTitel || b.kavelId}</td>
+                          <td>{euro(b.bedrag)}</td>
+                          <td>{b.email}</td>
+                          <td>
+                            {b.tijdstip
+                              ? new Date(b.tijdstip).toLocaleString('nl-NL', {
+                                  dateStyle: 'short',
+                                  timeStyle: 'short',
+                                })
+                              : '—'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {(importPreview.biedingen || []).length > 25 && (
+                    <p className="empty">
+                      Eerste 25 van {(importPreview.biedingen || []).length}{' '}
+                      biedingen getoond.
+                    </p>
+                  )}
+                  {(importPreview.biedingen || []).length === 0 && (
+                    <p className="empty">Geen biedingen in deze snapshot.</p>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="panel">
             <h2>Testdata</h2>
             <p className="lede">
               Zet alle kavels en biedingen terug naar de start-nepdata. Handig
@@ -477,11 +743,6 @@ export default function Admin() {
               <code>isw-kavel-veiling-admin-v1</code>), niet de live D1 of de
               leerling-site.
             </p>
-            {ok && (
-              <p className="msg msg--ok" role="status">
-                {ok}
-              </p>
-            )}
             <div className="btn-row">
               <button type="button" className="btn btn--ghost" onClick={onReset}>
                 Testdata resetten
@@ -514,6 +775,10 @@ export default function Admin() {
               </li>
               <li>
                 Admin-login: alleen <code>hgj@isw.info</code>
+              </li>
+              <li>
+                Backup: AES-256-GCM envelope v1 (
+                <code>.json.enc</code>), geen raw CSV
               </li>
               <li>
                 Onzinbiedingen: handmatig, één voor één, na expliciete

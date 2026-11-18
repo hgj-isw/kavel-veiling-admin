@@ -14,12 +14,14 @@ Beheer in tabbladen: **Kavels** | **Biedingen** | **Instellingen**
 - Stapgrootte en startbedrag per kavel
 - Alle biedingen met e-mailadres
 - Onzinbiedingen verwijderen
+- Versleutelde backup downloaden / importeren (AES-256-GCM `.json.enc`)
 - Testdata resetten
 - Geen Control Center op de leerling-site (aparte repo)
 
 ## Opslag
 
 - **Live** (Pages-build met `VITE_API_URL`): biedingen-lijst + delete via Cloudflare (`GET`/`DELETE /api/admin/biedingen`). Login met school-e-mail + toegangscode; alleen admin.
+- **Backup:** `GET /api/admin/export?format=json` → client-side AES-256-GCM envelope (PBKDF2 210k) → download `.json.enc`. Import = decrypt + preview. Geen raw CSV/JSON-download; geen R2.
 - **Mock** (lokaal zonder `VITE_API_URL`): localStorage `isw-kavel-veiling-admin-v1` + test-PIN. Mock wordt niet gewist.
 - Onzinbiedingen: alleen handmatig, na expliciete bevestiging (geen bulk/auto).
 

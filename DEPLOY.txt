@@ -29,5 +29,8 @@ Login mock (geen VITE_API_URL): hgj@isw.info · test-PIN 1234
 
 Onzinbiedingen: handmatig, één voor één, na window.confirm → DELETE /api/admin/biedingen/:id
 
+Backup (Instellingen): versleutelde .json.enc download/import
+  - GET /api/admin/export?format=json + Bearer → AES-256-GCM client-side
+  - Geen raw CSV/JSON-knoppen; geen R2
+
 Let op: localStorage-mock blijft beschikbaar tot live pad werkt.
-Live Worker moet DELETE + CORS Allow-Methods bevatten (Jasper: wrangler deploy).

@@ -384,6 +384,12 @@ code {
   gap: 0.6rem;
 }
 
+.backup-preview {
+  margin-top: 1rem;
+  display: grid;
+  gap: 0.6rem;
+}
+
 .form {
   display: grid;
   gap: 0.9rem;

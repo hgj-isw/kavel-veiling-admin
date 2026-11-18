@@ -6,10 +6,10 @@
   "description": "ISW Hoogeland kavelveiling Control Center (admin, nepdata)",
   "scripts": {
     "dev": "vite",
-    "build": "VITE_BASE=/kavel-veiling-admin/ vite build",
-    "build:pages": "VITE_BASE=/kavel-veiling-admin/ vite build",
+    "build": "VITE_BASE=/kavel-veiling-admin/ vite build && cp dist/index.html dist/404.html",
+    "build:pages": "VITE_BASE=/kavel-veiling-admin/ vite build && cp dist/index.html dist/404.html",
     "preview": "vite preview --base /",
-    "preview:pages": "VITE_BASE=/kavel-veiling-admin/ vite build && vite preview",
+    "preview:pages": "npm run build:pages && vite preview",
     "lint": "oxlint"
   },
   "dependencies": {

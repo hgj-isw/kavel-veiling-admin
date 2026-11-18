@@ -9,6 +9,7 @@ GitHub-repo + Pages (admin Control Center)
 
    npm install
    npm run build:pages
+   # maakt dist/index.html én dist/404.html (SPA-fallback voor /login e.d.)
 
 3. Pages-branch:
 
@@ -18,6 +19,9 @@ GitHub-repo + Pages (admin Control Center)
 4. Settings → Pages → Deploy from a branch → gh-pages → / (root) → Save
 
 5. Open: https://hgj-isw.github.io/kavel-veiling-admin/
+
+   Deep-links zoals /login geven HTTP 404 van GitHub Pages, maar 404.html
+   is een kopie van index.html zodat de SPA toch laadt.
 
 Login: hgj@isw.info · test-PIN 1234
 

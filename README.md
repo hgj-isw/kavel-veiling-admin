@@ -34,10 +34,15 @@ npm run dev
 
 ```bash
 npm run build:pages
+# dist/ bevat index.html + 404.html (SPA-fallback) + .nojekyll
 # deploy dist/ → branch gh-pages, pad /
 ```
 
 Live-doel: https://hgj-isw.github.io/kavel-veiling-admin/
+
+`build:pages` kopieert `index.html` → `404.html`, zodat deep-links
+(`/login`) de SPA laden. GitHub Pages geeft dan nog steeds status 404,
+maar de app mount wel.
 
 Als Pages niet automatisch aanstaat:  
 **Settings → Pages → Deploy from a branch → `gh-pages` → `/` (root) → Save**
